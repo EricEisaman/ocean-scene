@@ -28,7 +28,7 @@ export const TERRAIN_CONFIG = {
     },
     lighting: {
       sunDir: { x: 0.35, y: 0.85, z: -0.28 }, ambient: 0.24, diffuseBoost: 0.76,
-      waterDepthFog: { r: 0.055, g: 0.023, b: 0.010 },
+      waterDepthFog: { r: 0.055, g: 0.023, b: 0.010 }, waterColor: new BABYLON.Color3(0.14, 0.39, 0.46),
       distanceFog: { start: 250, end: 850, color: new BABYLON.Color3(0.018, 0.12, 0.17) },
     },
     detail: { tiling: 12.0, strength: 0.22, grassMaskRange: { low: 8.5, high: 32.0 } },
@@ -60,12 +60,6 @@ export const TERRAIN_CONFIG = {
     },
     global: { distanceFadeStart: 250, distanceFadeEnd: 850 },
   },
-  ocean: {
-    depth: {
-      shallowColor: new BABYLON.Color4(0.14, 0.52, 0.74, 0.85), deepColor: new BABYLON.Color4(0.03, 0.21, 0.29, 0.95),
-      waterDepth: 1.0, worldSpaceDepth: 0.35, shoreFade: 0.35, shoreFadeSmoothness: 2.2,
-    },
-  },
   textures: {
     seabed: "https://raw.githubusercontent.com/EricEisaman/assets/main/images/textures/rocky_trail_1k.blend/textures/rocky_trail_diff_1k.jpg",
     foam: {
@@ -89,20 +83,16 @@ export const TERRAIN_CONFIG = {
       const s = TERRAIN_CONFIG.shading;
       return { sandColor: s.gradient.sand.color, gravelColor: s.gradient.gravel.color, grassColor: s.gradient.grass.color, rockColor: s.gradient.rock.color, snowColor: s.gradient.snow.color, sandH: s.gradient.sand.h, gravelH: s.gradient.gravel.h, grassH: s.gradient.grass.h, rockH: s.gradient.rock.h, snowH: s.gradient.snow.h };
     },
-    getFoamShaderUniforms() {
-      const f = TERRAIN_CONFIG.foam.shader;
-      return { InterSec_Color: f.color, InterSec_Width: f.width, InterSec_Dissolve: f.dissolve, InterSec_Foam_Invert: f.invert, InterSec_Foam_Scale: f.scale, InterSec_Foam_Tile: f.tile, InterSec_Foam_Pan: f.pan, InterSec_Foam_Distortion: f.distortion, InterSec_Foam_Smooth: f.smooth, InterSec_GradientDissolve: f.gradientDissolve, InterSec_Edge_Fade: f.edgeFade };
-    },
   },
 };
 export const TERRAIN_TYPES = { default: 'default' as TerrainTechnique, atoll: 'atoll' as TerrainTechnique, volcanic: 'volcanic' as TerrainTechnique } as const;
 export function getMergedTerrainConfig(technique: TerrainTechnique = 'default') {
   const base: any = TERRAIN_CONFIG; const preset = base.presets?.[technique];
-  if (!preset) { return { generation: base.generation, mesh: base.mesh, shading: base.shading, foam: base.foam, ocean: base.ocean, textures: base.textures, type: technique }; }
-  return { generation: { ...base.generation, ...(preset.generation || {}) }, mesh: base.mesh, shading: { ...base.shading, gradient: { ...base.shading.gradient, ...(preset.shading?.gradient || {}) }, lighting: base.shading.lighting, detail: base.shading.detail, slope: base.shading.slope }, foam: base.foam, ocean: base.ocean, textures: base.textures, type: technique };
+  if (!preset) { return { generation: base.generation, mesh: base.mesh, shading: base.shading, foam: base.foam, textures: base.textures, type: technique }; }
+  const gradient = Object.fromEntries(Object.entries(base.shading.gradient).map(([name, value]) => [name, { ...(value as object), ...(preset.shading?.gradient?.[name] || {}) }]));
+  return { generation: { ...base.generation, ...(preset.generation || {}) }, mesh: base.mesh, shading: { ...base.shading, gradient }, foam: base.foam, textures: base.textures, type: technique };
 }
 export type TerrainGenerationConfig = typeof TERRAIN_CONFIG.generation;
 export type TerrainMeshConfig = typeof TERRAIN_CONFIG.mesh;
 export type TerrainShadingConfig = typeof TERRAIN_CONFIG.shading;
-export type TerrainFoamShaderConfig = typeof TERRAIN_CONFIG.foam.shader;
 export type TerrainFoamParticlesConfig = typeof TERRAIN_CONFIG.foam.particles;

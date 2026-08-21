@@ -42,6 +42,15 @@ uniform SurfFoam_Scale: f32;
 uniform SurfFoam_Tile: vec2f;
 uniform SurfFoam_Edge: f32;
 uniform SurfFoam_EdgeSmooth: f32;
+uniform SurfFoam_LodNear: f32;
+uniform SurfFoam_LodFar: f32;
+uniform SurfFoam_LodDistance: f32;
+uniform SurfFoam_SecondScale: f32;
+uniform SurfFoam_RemapBase: f32;
+uniform SurfFoam_RemapRange: f32;
+uniform SurfFoam_SecondRemapBase: f32;
+uniform SurfFoam_SecondRemapRange: f32;
+uniform SurfFoam_Blend: f32;
 
 
 
@@ -95,6 +104,7 @@ uniform Normal_Strength: f32;
 uniform Normal_Pan: f32;
 uniform Normal_Scale: f32;
 uniform Normal_DistanceStrength: f32;
+uniform sunDir: vec3f;
 
 // Lighting
 uniform ShadowColor: vec4f;
@@ -336,22 +346,24 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     // We force LOD 2.5 blur + minimum 55% coverage so close looks like far.
     let viewDistFoam = length(camPos - worldPos);
     // Blur LOD: 2.2 close, 3.0 far - makes close as soft as far
-    let lod = 2.2 + saturate(viewDistFoam / 100.0) * 0.8;
+    let lod = uniforms.SurfFoam_LodNear + saturate(viewDistFoam / uniforms.SurfFoam_LodDistance) * (uniforms.SurfFoam_LodFar - uniforms.SurfFoam_LodNear);
 
     // Sample foam texture blurry
-    var uvFoam = baseUV * uniforms.SurfFoam_Scale * 0.7 + vec2f(t*0.0012, t*0.0008);
+    var uvFoam = baseUV * uniforms.SurfFoam_Tile * uniforms.SurfFoam_Scale + uniforms.SurfFoam_Pan * t;
     let r = textureSampleLevel(SurfFoam_Map, SurfFoam_MapSampler, uvFoam, lod).r;
     // Very soft edge: 0.12 to 1.02 = almost full coverage, thin faint veins
     var rawMask = smoothMask(uniforms.SurfFoam_Edge, uniforms.SurfFoam_EdgeSmooth, r);
+    rawMask = mix(rawMask, 1.0 - rawMask, uniforms.Invert_SurfFoam);
     // REMAP to never be dark: 0.55 to 0.85 (was 0 to 1)
     // This is the key: gaps are 0.55 foam, blobs 0.85 foam = no dark base
-    rawMask = 0.12 + rawMask * 0.32;
+    rawMask = uniforms.SurfFoam_RemapBase + rawMask * uniforms.SurfFoam_RemapRange;
     // Add subtle second octave for variation, but keep in same range
-    var uv2 = baseUV * uniforms.SurfFoam_Scale * 1.6 + vec2f(-t*0.0007, t*0.0010);
+    var uv2 = baseUV * uniforms.SurfFoam_Tile * uniforms.SurfFoam_Scale * 1.6 - uniforms.SurfFoam_Pan * t;
     let r2 = textureSampleLevel(SurfFoam_Map, SurfFoam_MapSampler, uv2, lod + 0.5).r;
-    var rawMask2 = smoothMask(0.15, 0.85, r2);
-    rawMask2 = 0.08 + rawMask2 * 0.22;
-    var foamCombined = rawMask * 0.58 + rawMask2 * 0.42;
+    var rawMask2 = smoothMask(uniforms.SurfFoam_Edge, uniforms.SurfFoam_EdgeSmooth, r2);
+    rawMask2 = mix(rawMask2, 1.0 - rawMask2, uniforms.Invert_SurfFoam);
+    rawMask2 = uniforms.SurfFoam_SecondRemapBase + rawMask2 * uniforms.SurfFoam_SecondRemapRange;
+    var foamCombined = rawMask * uniforms.SurfFoam_Blend + rawMask2 * (1.0 - uniforms.SurfFoam_Blend);
     foamCombined = saturate(foamCombined);
     
     let foamMask = foamCombined * uniforms.Enable_SurfaceFoam;
@@ -361,7 +373,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     c = colorLayerAlpha(c, vec4f(4.0, 4.0, 4.0, 1.0), causticsMask);
     c = colorLayerAlpha(c, uniforms.Underwater_Color, underMask);
     c = colorLayerAlpha(c, uniforms.InterSec_Color, interMask);
-    c = colorLayerAlpha(c, uniforms.SL_Color, shoreMask * 0.0); // force off
+    c = colorLayerAlpha(c, uniforms.SL_Color, shoreMask);
     // FIX 3: Normal-based soft crest foam (was height-based stripes)
     // Use wave normal Y to detect crest steepness - flat = N.y ~1, crest = N.y drops
     // This is physically correct: foam appears where wave face tilts / breaks
@@ -430,8 +442,7 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
     rgb = mix(rgb, skyRefl, reflFactor);
 
     // Specular - soft
-    let sunDir = normalize(vec3f(0.35, 0.85, -0.28));
-    let halfVec = normalize(viewDir + sunDir);
+    let halfVec = normalize(viewDir + normalize(uniforms.sunDir));
     let NdotH = max(dot(N, halfVec), 0.0);
     let specPower = mix(16.0, 128.0, uniforms.Specular_Hardness);
     var spec = pow(NdotH, specPower) * uniforms.Specular_Size;

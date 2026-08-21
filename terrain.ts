@@ -50,7 +50,7 @@ export async function setupTerrain(scene: BABYLON.Scene, options?: TerrainSetupO
   const ground = BABYLON.MeshBuilder.CreateGround("seabed", { width: meshCfg.size, height: meshCfg.size, subdivisions: meshCfg.subdivisions, updatable: false }, scene);
   ground.position.y = meshCfg.groundY;
   const floorMat = new BABYLON.ShaderMaterial("oceanFloorMaterial", scene, { vertex: "oceanFloor", fragment: "oceanFloor" }, {
-    attributes: ["position", "uv"], uniforms: ["terrainRender","chunkOrigin","cameraPosition","sandColor","gravelColor","grassColor","rockColor","snowColor","sandH","gravelH","grassH","rockH","snowH"],
+    attributes: ["position", "uv"], uniforms: ["terrainRender","chunkOrigin","cameraPosition","sandColor","gravelColor","grassColor","rockColor","snowColor","sandH","gravelH","grassH","rockH","snowH","sunDir","ambient","diffuseBoost","waterDepthFog","waterColor","detailTiling","detailStrength","grassMaskLow","grassMaskHigh","rockStart","rockEnd","grassRockLerpStart","grassRockLerpEnd","beachFlatThreshold","ridgeInfluence","distanceFogStart","distanceFogEnd","distanceFogColor"],
     uniformBuffers: ["Scene","Mesh"], samplers: ["seabedTexture","heightTexture","dataTexture"], shaderLanguage: BABYLON.ShaderLanguage.WGSL
   });
   const grad = shading.gradient;
@@ -60,6 +60,14 @@ export async function setupTerrain(scene: BABYLON.Scene, options?: TerrainSetupO
   floorMat.setColor3("rockColor", new BABYLON.Color3(grad.rock.color.r, grad.rock.color.g, grad.rock.color.b));
   floorMat.setColor3("snowColor", new BABYLON.Color3(grad.snow.color.r, grad.snow.color.g, grad.snow.color.b));
   floorMat.setFloat("sandH", grad.sand.h); floorMat.setFloat("gravelH", grad.gravel.h); floorMat.setFloat("grassH", grad.grass.h); floorMat.setFloat("rockH", grad.rock.h); floorMat.setFloat("snowH", grad.snow.h);
+  const lighting = shading.lighting; const detail = shading.detail; const distanceFog = lighting.distanceFog;
+  floorMat.setVector3("sunDir", new BABYLON.Vector3(lighting.sunDir.x, lighting.sunDir.y, lighting.sunDir.z));
+  floorMat.setFloat("ambient", lighting.ambient); floorMat.setFloat("diffuseBoost", lighting.diffuseBoost);
+  floorMat.setColor3("waterDepthFog", new BABYLON.Color3(lighting.waterDepthFog.r, lighting.waterDepthFog.g, lighting.waterDepthFog.b)); floorMat.setColor3("waterColor", lighting.waterColor);
+  floorMat.setFloat("detailTiling", detail.tiling); floorMat.setFloat("detailStrength", detail.strength);
+  floorMat.setFloat("grassMaskLow", detail.grassMaskRange.low); floorMat.setFloat("grassMaskHigh", detail.grassMaskRange.high);
+  floorMat.setFloat("rockStart", shading.slope.rockStart); floorMat.setFloat("rockEnd", shading.slope.rockEnd); floorMat.setFloat("grassRockLerpStart", shading.slope.grassRockLerpStart); floorMat.setFloat("grassRockLerpEnd", shading.slope.grassRockLerpEnd); floorMat.setFloat("beachFlatThreshold", shading.slope.beachFlatThreshold); floorMat.setFloat("ridgeInfluence", shading.slope.ridgeInfluence);
+  floorMat.setFloat("distanceFogStart", distanceFog.start); floorMat.setFloat("distanceFogEnd", distanceFog.end); floorMat.setColor3("distanceFogColor", distanceFog.color);
   const seabedTex = new BABYLON.Texture(cfg.textures.seabed, scene, true, false, BABYLON.Texture.TRILINEAR_SAMPLINGMODE);
   seabedTex.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE; seabedTex.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE; seabedTex.anisotropicFilteringLevel = meshCfg.anisotropicLevel;
   floorMat.setTexture("seabedTexture", seabedTex); floorMat.setTexture("heightTexture", heightTexture); floorMat.setTexture("dataTexture", dataTexture);

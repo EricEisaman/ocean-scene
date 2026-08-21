@@ -25,6 +25,24 @@ uniform gravelH: f32;
 uniform grassH: f32;
 uniform rockH: f32;
 uniform snowH: f32;
+uniform sunDir: vec3<f32>;
+uniform ambient: f32;
+uniform diffuseBoost: f32;
+uniform waterDepthFog: vec3<f32>;
+uniform waterColor: vec3<f32>;
+uniform detailTiling: f32;
+uniform detailStrength: f32;
+uniform grassMaskLow: f32;
+uniform grassMaskHigh: f32;
+uniform rockStart: f32;
+uniform rockEnd: f32;
+uniform grassRockLerpStart: f32;
+uniform grassRockLerpEnd: f32;
+uniform beachFlatThreshold: f32;
+uniform ridgeInfluence: f32;
+uniform distanceFogStart: f32;
+uniform distanceFogEnd: f32;
+uniform distanceFogColor: vec3<f32>;
 
 fn heightBlend(h: f32) -> vec3f {
   var c = uniforms.sandColor;
@@ -47,22 +65,22 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
 
     // 2. SLOPE modifies thresholds - steep = rock earlier
     // effective grass->rock transition moves down when steep
-    let steepness = clamp(slope + ridge*0.25, 0.0, 1.0);
-    let effectiveRockH = mix(uniforms.rockH, uniforms.grassH, smoothstep(0.25, 0.65, steepness));
+    let steepness = clamp(slope + ridge*uniforms.ridgeInfluence, 0.0, 1.0);
+    let effectiveRockH = mix(uniforms.rockH, uniforms.grassH, smoothstep(uniforms.grassRockLerpStart, uniforms.grassRockLerpEnd, steepness));
     
     // recompute grass/rock mix with slope-aware height
     let grassRockT = smoothstep(uniforms.grassH, effectiveRockH, h);
     var slopeRock = mix(uniforms.grassColor, uniforms.rockColor, grassRockT);
     // if flat, keep heightBlend, if steep, push toward slopeRock
-    base = mix(base, slopeRock, smoothstep(0.28, 0.58, steepness) * (1.0 - smoothstep(uniforms.sandH, uniforms.sandH+3.0, h) * 0.0));
+    base = mix(base, slopeRock, smoothstep(uniforms.grassRockLerpStart, uniforms.grassRockLerpEnd, steepness));
 
     // 3. Beach rule: always sand/gravel if very low, regardless of slope but flatten cliff
     let beachMask = 1.0 - smoothstep(uniforms.sandH, uniforms.gravelH + 1.0, h);
-    base = mix(base, uniforms.sandColor, beachMask * (1.0 - smoothstep(0.1, 0.45, steepness)));
-    base = mix(base, uniforms.gravelColor, beachMask * smoothstep(0.2, 0.5, steepness) * 0.7);
+    base = mix(base, uniforms.sandColor, beachMask * (1.0 - smoothstep(uniforms.beachFlatThreshold * 0.22, uniforms.beachFlatThreshold, steepness)));
+    base = mix(base, uniforms.gravelColor, beachMask * smoothstep(uniforms.beachFlatThreshold * 0.44, uniforms.beachFlatThreshold + 0.05, steepness) * 0.7);
 
     // 4. CLIFF rule: high slope = rock
-    let cliff = smoothstep(0.42, 0.72, steepness);
+    let cliff = smoothstep(uniforms.rockStart, uniforms.rockEnd, steepness);
     base = mix(base, uniforms.rockColor, cliff * (1.0 - beachMask * 0.8));
 
     // 5. SNOW rule: high AND flat = snow, high AND steep = rock with snow patches
@@ -73,19 +91,18 @@ fn main(input: FragmentInputs) -> FragmentOutputs {
 
     // micro detail
     let worldXZ = input.vWorldPos.xz;
-    let detail = textureSampleLevel(seabedTexture, seabedTextureSampler, fract(worldXZ/12.0), 0.0).rgb;
-    let grassMask = (1.0 - cliff) * smoothstep(uniforms.gravelH, uniforms.rockH, h);
-    base *= mix(vec3f(1.0), detail, 0.22 * grassMask);
+    let detail = textureSampleLevel(seabedTexture, seabedTextureSampler, fract(worldXZ/uniforms.detailTiling), 0.0).rgb;
+    let grassMask = (1.0 - cliff) * smoothstep(uniforms.grassMaskLow, uniforms.grassMaskHigh, h);
+    base *= mix(vec3f(1.0), detail, uniforms.detailStrength * grassMask);
 
-    let sunDir = normalize(vec3f(0.35,0.85,-0.28));
-    let diffuse = max(dot(N, sunDir), 0.0);
-    let lit = base * (0.24 + diffuse * 0.76);
+    let diffuse = max(dot(N, normalize(uniforms.sunDir)), 0.0);
+    let lit = base * (uniforms.ambient + diffuse * uniforms.diffuseBoost);
 
     let waterDepth = max(-h, 0.0);
     let camDist = distance(uniforms.cameraPosition, input.vWorldPos);
-    let trans = exp(-(waterDepth + camDist*0.025) * vec3f(0.055,0.023,0.010));
-    var finalCol = mix(vec3f(0.14,0.39,0.46), lit, trans);
-    finalCol = mix(finalCol, vec3f(0.018,0.12,0.17), smoothstep(250.0,850.0,camDist));
+    let trans = exp(-(waterDepth + camDist*0.025) * uniforms.waterDepthFog);
+    var finalCol = mix(uniforms.waterColor, lit, trans);
+    finalCol = mix(finalCol, uniforms.distanceFogColor, smoothstep(uniforms.distanceFogStart, uniforms.distanceFogEnd,camDist));
 
     fragmentOutputs.color = vec4f(finalCol, 1.0);
 }`;
