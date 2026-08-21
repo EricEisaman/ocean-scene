@@ -7,9 +7,9 @@ export const TERRAIN_CONFIG = {
   customHeightmap: undefined as TerrainSource | undefined,
   generation: {
     worldScale: 0.018, baseAmplitude: 2, baseFrequency: 0.2, baseOctaves: 5, baseGain: 0.5, lacunarity: 2.2,
-    warpStrength: 1.2, warpFrequency: 0.6, ridgeAmplitude: 100, ridgeFrequency: 1.1, ridgeSharpness: 3.0,
+    warpStrength: 1.2, warpFrequency: 0.6, ridgeAmplitude: 100, ridgeFrequency: 1.1, ridgeSharpness: 1.0,
     cliffAmount: 0.35, cliffThreshold: 0.2, cliffSoftness: 0.55, valleyAmplitude: 4, valleyFrequency: 1.0,
-    seaLevel: 0, seed: 0, coastalPlainsPrevalence: 0.95, coastalPlainsWidth: 280, coastalPlainsHeight: 1.2, coastalPlainsFalloff: 0.15,
+    seaLevel: 0, seed: 0, coastalPlainsPrevalence: 0.35, coastalPlainsWidth: 100, coastalPlainsHeight: 1.2, coastalPlainsFalloff: 0.15,
     mountainMask: { frequency: 0.12, low: 0.35, high: 0.35 },
   },
   mesh: {
